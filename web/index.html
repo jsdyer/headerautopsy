@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#17201c"><meta name="description" content="Interpret HTTP response headers and browser capture files locally.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Header Autopsy · CoolCode</title><link rel="stylesheet" href="./style.css"><script type="module" src="./app.mjs"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to analyzer</a>
+<header class="mast"><div class="wrap"><a href="../">CoolCode.ca</a><button id="theme" type="button" aria-label="Dark mode" aria-pressed="false" hidden>◐</button></div></header>
+<section class="hero"><div class="wrap"><div><h1>Header Autopsy</h1><p>Read the security, caching, and infrastructure clues in an HTTP response.</p></div><aside><strong>Analyzed in this tab</strong><p>Captured requests are never replayed. Report fields omit opaque values, cookie contents, paths, and query strings.</p></aside></div></section>
+<main id="main" class="wrap">
+<section class="box" id="input" aria-labelledby="input-title">
+<h2 id="input-title">Open response headers</h2>
+<p class="muted">Paste response headers or open a sanitized HAR. Browsers may leave cookie and authorization headers out of sanitized exports.</p>
+<label class="field" for="paste">HTTP response headers</label>
+<textarea id="paste" rows="8" maxlength="700000" autocomplete="off" spellcheck="false" placeholder="HTTP/2 200&#10;cache-control: max-age=600"></textarea>
+<div class="row actions"><button id="analyse" class="primary" type="button">Analyze headers</button><button id="choose" type="button">Open HAR</button><input id="file" type="file" accept=".har,.json,application/json" hidden><button id="sample" type="button">Try sample</button><button id="clear" type="button">Clear</button></div>
+<p id="status" class="status" role="status" aria-live="polite">Paste response headers, open a HAR file, or try the example.</p>
+</section>
+<div id="report" hidden>
+<section class="box" aria-labelledby="report-title">
+<div class="row between"><h2 id="report-title">Capture findings</h2><button type="button" id="export">Download report JSON</button></div>
+<div id="stats" class="stats"></div><ul id="findings" class="findings"></ul><p id="empty-findings" class="muted" hidden>No built-in infrastructure or review clues matched these headers.</p>
+</section>
+<section class="box" aria-labelledby="raw-title">
+<h2 id="raw-title">Interpreted headers</h2>
+<div class="row filter-row"><label class="field grow">Search headers<input id="query" type="search" autocomplete="off"></label><label class="field mode">Category<select id="category"></select></label></div>
+<div class="scroll"><table><thead><tr><th scope="col">HAR entry</th><th scope="col">Header</th><th scope="col">Reading</th><th scope="col">Meaning</th></tr></thead><tbody id="headers"></tbody></table></div>
+<div class="row pager"><button id="prev" type="button">Previous</button><span id="page-info" class="mono" role="status"></span><button id="next" type="button">Next</button></div>
+</section>
+</div>
+<noscript>Enable JavaScript to analyze headers locally.</noscript>
+</main>
+<footer class="footer"><div class="wrap"><a href="../trackerxray/">Inspect request patterns in Tracker X-Ray</a><a href="https://www.rfc-editor.org/rfc/rfc9110">HTTP semantics</a><a href="https://developer.chrome.com/docs/devtools/network/reference#save-as-har">Chrome HAR export</a><a href="https://github.com/jsdyer/headerautopsy">Source code</a></div></footer>
+</body>
+</html>
