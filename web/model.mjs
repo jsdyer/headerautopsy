@@ -44,13 +44,36 @@ const PAYMENT_HOSTS = {
   'adyen.com': 'Adyen', 'braintreegateway.com': 'Braintree',
 };
 const PRIVATE_HEADERS = /(?:authorization|token|api[-_]?key|session|credential|secret|signature|passw|client[-_]?id|request[-_]?id|forwarded|trace)/i;
+const POLICY_DIRECTIVE = /^(?:(?:default|script|style|img|font|connect|frame|worker|media|object|child|manifest|prefetch)-src(?:-elem|-attr)?|frame-ancestors|form-action|base-uri|sandbox|upgrade-insecure-requests|block-all-mixed-content|report-uri|report-to|require-trusted-types-for|trusted-types|geolocation|camera|microphone|clipboard-read|clipboard-write|payment|fullscreen)$/;
+const SOURCE_CLASS = /^(?:\*|https?:|data:|blob:|'(?:self|none|unsafe-inline|unsafe-eval|wasm-unsafe-eval|strict-dynamic|unsafe-hashes|report-sample)')$/;
+const UNORDERED_LISTS = new Set(['cache-control', 'vary']);
 
-function directiveValue(value, pattern) {
-  const matches = value.toLowerCase().split(/[;,]/).map((v) => v.trim()).filter((v) => pattern.test(v));
-  return matches.length ? [...new Set(matches)].join(', ') : 'Present';
+function directiveValue(value, pattern, ordered = false) {
+  const matches = value.toLowerCase().split(/[;,]/).map((v) => v.trim().replace(/\s*=\s*/, '='))
+    .filter((v) => pattern.test(v));
+  return matches.length ? (ordered ? matches : [...new Set(matches)]).join(', ') : 'Present';
 }
 
-function summary(name, value) {
+function policyClasses(value) {
+  const entries = value.split(';').map((part) => part.trim().split(/\s+/))
+    .filter(([name]) => POLICY_DIRECTIVE.test(name));
+  const reading = entries.map(([name, ...values]) => {
+    if (!name.includes('-src') && !['frame-ancestors', 'form-action', 'base-uri'].includes(name)) {
+      return name + (values.length ? ' (arguments withheld)' : '');
+    }
+    const parts = values.map((source) => {
+      if (SOURCE_CLASS.test(source)) return source;
+      if (/^'nonce-/i.test(source)) return 'nonce source';
+      if (/^'sha(?:256|384|512)-/i.test(source)) return 'hash source';
+      return 'other source withheld';
+    });
+    return `${name}: ${[...new Set(parts)].sort().join(' · ') || 'empty source list'}`;
+  });
+  if (new Set(entries.map(([name]) => name)).size === entries.length) reading.sort();
+  return reading.length ? reading.join('; ') : 'Present';
+}
+
+function summary(name, value, comparison) {
   if (name === 'set-cookie') {
     const flags = value.split(';').slice(1).map((v) => v.trim().toLowerCase().replace(/\s*=\s*/, '='));
     const visible = flags.filter((v) => /^(?:secure|httponly|partitioned|samesite\s*=\s*(?:lax|strict|none))$/.test(v));
@@ -62,19 +85,20 @@ function summary(name, value) {
   if (name === 'cache-control') return directiveValue(value, /^(?:public|private|no-cache|no-store|no-transform|must-revalidate|proxy-revalidate|immutable|must-understand|(?:max-age|s-maxage|stale-while-revalidate|stale-if-error)=\d{1,12})$/);
   if (name === 'strict-transport-security') return directiveValue(value, /^(?:max-age=\d{1,12}|includesubdomains|preload)$/);
   if (name.startsWith('content-security-policy') || name === 'permissions-policy') {
+    if (comparison && name.startsWith('content-security-policy')) return policyClasses(value);
     const names = value.split(name === 'permissions-policy' ? ',' : ';').map((v) => v.trim().split(/[\s=]/, 1)[0]);
-    const known = names.filter((v) => /^(?:(?:default|script|style|img|font|connect|frame|worker|media|object|child|manifest|prefetch)-src(?:-elem|-attr)?|frame-ancestors|form-action|base-uri|sandbox|upgrade-insecure-requests|block-all-mixed-content|report-uri|report-to|require-trusted-types-for|trusted-types|geolocation|camera|microphone|clipboard-read|clipboard-write|payment|fullscreen)$/.test(v));
+    const known = names.filter((v) => POLICY_DIRECTIVE.test(v));
     return known.length ? [...new Set(known)].slice(0, 25).join(', ') : 'Present';
   }
   if (name === 'content-type') {
     const type = value.trim().toLowerCase().split(';', 1)[0];
     return /^(?:text|image|video|audio|font|application|multipart|message|model)\/[a-z0-9.+_-]{1,64}$/.test(type) ? type : 'Present';
   }
-  if (name === 'content-encoding' || name === 'transfer-encoding') return directiveValue(value, /^(?:identity|gzip|br|deflate|compress|zstd|chunked|trailers)$/);
+  if (name === 'content-encoding' || name === 'transfer-encoding') return directiveValue(value, /^(?:identity|gzip|br|deflate|compress|zstd|chunked|trailers)$/, true);
   if (name === 'access-control-allow-origin') return value === '*' || value === 'null' ? value : 'Specific value omitted';
   if (name === 'x-frame-options') return directiveValue(value, /^(?:deny|sameorigin)$/);
   if (name === 'x-content-type-options') return directiveValue(value, /^nosniff$/);
-  if (name === 'referrer-policy') return directiveValue(value, /^(?:no-referrer|no-referrer-when-downgrade|origin|origin-when-cross-origin|same-origin|strict-origin|strict-origin-when-cross-origin|unsafe-url)$/);
+  if (name === 'referrer-policy') return directiveValue(value, /^(?:no-referrer|no-referrer-when-downgrade|origin|origin-when-cross-origin|same-origin|strict-origin|strict-origin-when-cross-origin|unsafe-url)$/, true);
   if (name.startsWith('cross-origin-')) return directiveValue(value.split(';', 1)[0], /^(?:unsafe-none|same-origin|same-origin-allow-popups|same-site|cross-origin|require-corp|credentialless|noopener-allow-popups)$/);
   if (name === 'x-cache' || name === 'cf-cache-status') {
     const signal = /^\s*(hit|miss|stale|bypass|expired|updating|revalidated|dynamic)(?:\b|$)/i.exec(value);
@@ -89,14 +113,14 @@ function summary(name, value) {
   return 'Value withheld';
 }
 
-function projectHeader(name, value) {
+function projectHeader(name, value, comparison = false) {
   const key = String(name).trim().toLowerCase();
   if (!HEADER_NAME.test(key)) return null;
   const vendor = Object.hasOwn(VENDOR_HEADERS, key) ? VENDOR_HEADERS[key] : null;
   const model = Object.hasOwn(KNOWN, key) ? KNOWN[key] : null;
   const group = model?.[0] ?? (vendor ? 'Infrastructure' : PRIVATE_HEADERS.test(key) || key === 'cookie' ? 'Sensitive' : 'Other');
   const detail = model?.[1] ?? (vendor ? `A header name consistent with ${vendor}. It may have been set by another system.` : 'A header with no built-in interpretation.');
-  return { header: key, group, detail, reading: summary(key, String(value ?? '').slice(0, 12000)), vendor };
+  return { header: key, group, detail, reading: summary(key, String(value ?? '').slice(0, 12000), comparison), vendor };
 }
 
 function finish(source, status, rows, hosts, limited) {
@@ -114,7 +138,7 @@ function finish(source, status, rows, hosts, limited) {
   return { source, status, rows, findings, limited };
 }
 
-export function parseHeaders(input) {
+export function parseHeaders(input, { comparison = false } = {}) {
   if (typeof input !== 'string' || input.length > 700000) throw new Error('Paste up to 700,000 characters at a time.');
   const pairs = [];
   const codes = [];
@@ -139,9 +163,62 @@ export function parseHeaders(input) {
     if (pairs.length === MAX_ROWS) break;
     pairs.push([line.slice(0, pos), line.slice(pos + 1).trim()]);
   }
-  const rows = pairs.map(([name, value]) => projectHeader(name, value)).filter(Boolean);
+  const rows = pairs.map(([name, value]) => projectHeader(name, value, comparison)).filter(Boolean);
   if (!rows.length) throw new Error('No HTTP header lines were found. Use name: value syntax.');
   return finish('Pasted response headers', codes.slice(0, 25), rows, [], rawCount > rows.length);
+}
+
+function groupRows(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    if (!groups.has(row.header)) groups.set(row.header, []);
+    groups.get(row.header).push(row);
+  }
+  return groups;
+}
+
+function readings(name, rows) {
+  const values = rows.map((row) => row.reading);
+  if (UNORDERED_LISTS.has(name)) {
+    return values.length ? [[...new Set(values.flatMap((value) => value.split(', ')))].sort().join(', ')] : [];
+  }
+  if (name === 'strict-transport-security') return values.map((value) => value.split(', ').sort().join(', '));
+  if (name === 'set-cookie') return values.map((value) => value.split(', ').sort().join(', ')).sort();
+  if (['content-encoding', 'transfer-encoding', 'referrer-policy'].includes(name)) {
+    return values.length ? [values.join(', ')] : [];
+  }
+  return values;
+}
+
+function describeSide(label, input) {
+  try { return parseHeaders(input, { comparison: true }); }
+  catch (error) { throw new Error(`${label} response: ${error.message}`); }
+}
+
+export function compareHeaderSets(baseline, candidate) {
+  const before = describeSide('Baseline', baseline);
+  const after = describeSide('Candidate', candidate);
+  const left = groupRows(before.rows);
+  const right = groupRows(after.rows);
+  const names = [...new Set([...left.keys(), ...right.keys()])].sort();
+  const headers = names.map((header) => {
+    const a = left.get(header) ?? [];
+    const b = right.get(header) ?? [];
+    const baselineReadings = readings(header, a);
+    const candidateReadings = readings(header, b);
+    const change = !a.length ? 'Added' : !b.length ? 'Removed'
+      : JSON.stringify(baselineReadings) === JSON.stringify(candidateReadings) ? 'Matching' : 'Changed';
+    const { group, detail } = a[0] ?? b[0];
+    return { header, group, detail, change, baselineReadings, candidateReadings };
+  });
+  const introduced = after.findings.filter((finding) => !before.findings.some((f) => f.title === finding.title));
+  const cleared = before.findings.filter((finding) => !after.findings.some((f) => f.title === finding.title));
+  return {
+    source: 'Response header comparison',
+    baseline: { status: before.status, limited: before.limited },
+    candidate: { status: after.status, limited: after.limited },
+    headers, introduced, cleared,
+  };
 }
 
 export function parseHAR(input) {

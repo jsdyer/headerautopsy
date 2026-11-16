@@ -1,10 +1,13 @@
 import { $, announce, downloadJSON, el, installTheme, stat, table, tag, wireDrop } from './ui.mjs';
-import { parseHAR, parseHeaders } from './model.mjs';
-import { SAMPLE } from './sample.mjs';
+import { compareHeaderSets, parseHAR, parseHeaders } from './model.mjs';
+import { COMPARISON_SAMPLE, SAMPLE } from './sample.mjs';
 
 let report = null;
+let comparison = null;
+let comparing = false;
 let generation = 0;
 let page = 0;
+let comparisonPage = 0;
 const PAGE_SIZE = 36;
 
 function rows() {
@@ -25,6 +28,8 @@ function rows() {
 
 function show(value, clearPaste) {
   report = value;
+  comparison = null;
+  $('comparison').hidden = true;
   if (clearPaste) $('paste').value = '';
   page = 0;
   $('query').value = '';
@@ -43,19 +48,98 @@ function show(value, clearPaste) {
   announce(value.limited ? 'Analysis ready. The capture exceeded the inspection limit; results show the portion read.' : 'Analysis ready. The report contains interpreted values only.');
 }
 
-function clear() {
-  generation++;
+function readingCell(items) {
+  if (items.length < 2) return items[0];
+  const list = el('ul');
+  list.replaceChildren(...items.map((item) => el('li', item)));
+  return list;
+}
+
+function comparisonRows() {
+  if (!comparison) return;
+  const query = $('compare-query').value.trim().toLowerCase();
+  const group = $('compare-category').value;
+  const change = $('change-filter').value;
+  const filtered = comparison.headers.filter((row) => {
+    const matchesChange = change === 'differences' ? row.change !== 'Matching' : !change || change === row.change;
+    return matchesChange && (!group || group === row.group)
+      && [row.header, row.group, row.detail, ...row.baselineReadings, ...row.candidateReadings]
+        .some((value) => value.toLowerCase().includes(query));
+  });
+  const total = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  comparisonPage = Math.max(0, Math.min(comparisonPage, total - 1));
+  const slice = filtered.slice(comparisonPage * PAGE_SIZE, (comparisonPage + 1) * PAGE_SIZE);
+  table($('compare-rows'), slice.map((row) => {
+    const label = el('div');
+    label.append(el('code', row.header), el('small', row.detail));
+    const level = row.change === 'Added' ? 'positive' : ['Removed', 'Changed'].includes(row.change) ? 'review' : undefined;
+    return [label, tag(row.change, level), readingCell(row.baselineReadings), readingCell(row.candidateReadings)];
+  }), 4, 'No compared readings match these filters.');
+  $('compare-page').textContent = `Page ${comparisonPage + 1} of ${total} · ${filtered.length} headers`;
+  $('compare-prev').disabled = comparisonPage === 0;
+  $('compare-next').disabled = comparisonPage + 1 >= total;
+}
+
+function showComparison(value) {
+  comparison = value;
   report = null;
   $('report').hidden = true;
-  $('headers').replaceChildren();
-  $('findings').replaceChildren();
-  $('stats').replaceChildren();
+  $('comparison').hidden = false;
+  comparisonPage = 0;
+  $('compare-query').value = '';
+  $('change-filter').value = 'differences';
+  const groups = [...new Set(value.headers.map((row) => row.group))].sort();
+  $('compare-category').replaceChildren(new Option('All categories', ''), ...groups.map((group) => new Option(group, group)));
+  const status = [value.baseline, value.candidate].map((side) => side.status.join(', ') || 'Unknown').join(' → ');
+  $('compare-stats').replaceChildren(stat('Baseline → candidate status', status),
+    ...['Added', 'Removed', 'Changed'].map((change) => stat(change + ' headers', value.headers.filter((row) => row.change === change).length)));
+  $('compare-warning').hidden = !(value.baseline.limited || value.candidate.limited);
+  const findings = [...value.introduced.map((item) => ['Added clue', item]), ...value.cleared.map((item) => ['Clue no longer seen', item])];
+  $('compare-findings').replaceChildren(...findings.map(([label, finding]) => {
+    const li = el('li');
+    li.append(tag(label, finding.level === 'Review' ? 'review' : undefined), el('h3', finding.title), el('p', finding.detail));
+    return li;
+  }));
+  $('compare-findings').hidden = !findings.length;
+  comparisonRows();
+  announce('Comparison ready. Only interpreted readings are included in the report.');
+}
+
+function setMode(next) {
+  if (next === comparing) return;
+  generation++;
+  comparing = next;
+  report = comparison = null;
+  $('report').hidden = $('comparison').hidden = true;
+  $('single-mode').setAttribute('aria-pressed', String(!next));
+  $('compare-mode').setAttribute('aria-pressed', String(next));
+  $('candidate-input').hidden = !next;
+  $('choose').hidden = next;
+  $('paste-label').textContent = next ? 'Baseline response headers' : 'HTTP response headers';
+  $('analyse').textContent = next ? 'Compare headers' : 'Analyze headers';
+  $('sample').textContent = next ? 'Try comparison sample' : 'Try sample';
+  $('input-guide').textContent = next
+    ? 'Paste one HTTP response header block in each field. Compare before and after a change, or use copies from different browsers or networks.'
+    : 'Paste response headers or open a sanitized HAR. Browsers may leave cookie and authorization headers out of sanitized exports.';
+  announce(next ? 'Paste both responses or try the comparison sample.' : 'Paste response headers, open a HAR file, or try the example.');
+}
+
+function clear() {
+  generation++;
+  report = comparison = null;
+  $('report').hidden = $('comparison').hidden = true;
+  for (const id of ['headers', 'findings', 'stats', 'compare-rows', 'compare-findings', 'compare-stats']) $(id).replaceChildren();
   $('paste').value = '';
-  announce('Paste response headers, open a HAR file, or try the example.');
+  $('candidate').value = '';
+  announce(comparing ? 'Paste both responses or try the comparison sample.' : 'Paste response headers, open a HAR file, or try the example.');
 }
 
 async function read(file) {
   if (!file) return;
+  if (comparing) {
+    announce('Use Single response or HAR to inspect a capture file.', true);
+    return;
+  }
   const current = ++generation;
   try {
     if (file.size > 12000000) throw new Error('Choose a HAR file of 12 MB or less.');
@@ -69,12 +153,26 @@ async function read(file) {
 
 function analyse() {
   generation++;
-  try { show(parseHeaders($('paste').value), false); }
-  catch (error) { announce(error.message, true); }
+  try {
+    if (comparing) showComparison(compareHeaderSets($('paste').value, $('candidate').value));
+    else show(parseHeaders($('paste').value), false);
+  } catch (error) {
+    if (comparing) {
+      comparison = null;
+      $('comparison').hidden = true;
+    }
+    announce(error.message, true);
+  }
 }
 
+$('single-mode').addEventListener('click', () => setMode(false));
+$('compare-mode').addEventListener('click', () => setMode(true));
 $('analyse').addEventListener('click', analyse);
-$('sample').addEventListener('click', () => { $('paste').value = SAMPLE; analyse(); });
+$('sample').addEventListener('click', () => {
+  $('paste').value = SAMPLE;
+  if (comparing) $('candidate').value = COMPARISON_SAMPLE;
+  analyse();
+});
 $('clear').addEventListener('click', clear);
 $('choose').addEventListener('click', () => $('file').click());
 $('export').addEventListener('click', () => { if (report) downloadJSON(report, 'header-autopsy-report.json'); });
@@ -82,5 +180,11 @@ $('query').addEventListener('input', () => { page = 0; rows(); });
 $('category').addEventListener('change', () => { page = 0; rows(); });
 $('prev').addEventListener('click', () => { page--; rows(); });
 $('next').addEventListener('click', () => { page++; rows(); });
+$('compare-export').addEventListener('click', () => { if (comparison) downloadJSON(comparison, 'header-autopsy-comparison.json'); });
+for (const id of ['compare-query', 'change-filter', 'compare-category']) {
+  $(id).addEventListener('input', () => { comparisonPage = 0; comparisonRows(); });
+}
+$('compare-prev').addEventListener('click', () => { comparisonPage--; comparisonRows(); });
+$('compare-next').addEventListener('click', () => { comparisonPage++; comparisonRows(); });
 wireDrop($('input'), $('file'), read);
 installTheme();

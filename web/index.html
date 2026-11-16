@@ -2,20 +2,23 @@
 <html lang="en-CA">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#17201c"><meta name="description" content="Interpret HTTP response headers and browser capture files locally.">
+<meta name="theme-color" content="#17201c"><meta name="description" content="Interpret or compare HTTP response headers and inspect browser capture files locally.">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Header Autopsy · CoolCode</title><link rel="stylesheet" href="./style.css"><script type="module" src="./app.mjs"></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to analyzer</a>
 <header class="mast"><div class="wrap"><a href="../">CoolCode.ca</a><button id="theme" type="button" aria-label="Dark mode" aria-pressed="false" hidden>◐</button></div></header>
-<section class="hero"><div class="wrap"><div><h1>Header Autopsy</h1><p>Read the security, caching, and infrastructure clues in an HTTP response.</p></div><aside><strong>Analyzed in this tab</strong><p>Captured requests are never replayed. Report fields omit opaque values, cookie contents, paths, and query strings.</p></aside></div></section>
+<section class="hero"><div class="wrap"><div><h1>Header Autopsy</h1><p>Read and compare security, caching, and infrastructure clues in HTTP responses.</p></div><aside><strong>Analyzed in this tab</strong><p>Captured requests are never replayed. Report fields omit opaque values, cookie contents, paths, and query strings.</p></aside></div></section>
 <main id="main" class="wrap">
 <section class="box" id="input" aria-labelledby="input-title">
 <h2 id="input-title">Open response headers</h2>
-<p class="muted">Paste response headers or open a sanitized HAR. Browsers may leave cookie and authorization headers out of sanitized exports.</p>
-<label class="field" for="paste">HTTP response headers</label>
-<textarea id="paste" rows="8" maxlength="700000" autocomplete="off" spellcheck="false" placeholder="HTTP/2 200&#10;cache-control: max-age=600"></textarea>
+<div class="row analysis-mode" role="group" aria-label="Analysis mode"><button id="single-mode" type="button" aria-pressed="true">Single response or HAR</button><button id="compare-mode" type="button" aria-pressed="false">Compare two responses</button></div>
+<p class="muted" id="input-guide">Paste response headers or open a sanitized HAR. Browsers may leave cookie and authorization headers out of sanitized exports.</p>
+<div class="capture-inputs" id="capture-inputs">
+<div><label class="field" id="paste-label" for="paste">HTTP response headers</label><textarea id="paste" rows="8" maxlength="700000" autocomplete="off" spellcheck="false" placeholder="HTTP/2 200&#10;cache-control: max-age=600"></textarea></div>
+<div id="candidate-input" hidden><label class="field" for="candidate">Candidate response headers</label><textarea id="candidate" rows="8" maxlength="700000" autocomplete="off" spellcheck="false" placeholder="HTTP/2 302&#10;cache-control: no-store"></textarea></div>
+</div>
 <div class="row actions"><button id="analyse" class="primary" type="button">Analyze headers</button><button id="choose" type="button">Open HAR</button><input id="file" type="file" accept=".har,.json,application/json" hidden><button id="sample" type="button">Try sample</button><button id="clear" type="button">Clear</button></div>
 <p id="status" class="status" role="status" aria-live="polite">Paste response headers, open a HAR file, or try the example.</p>
 </section>
@@ -29,6 +32,21 @@
 <div class="row filter-row"><label class="field grow">Search headers<input id="query" type="search" autocomplete="off"></label><label class="field mode">Category<select id="category"></select></label></div>
 <div class="scroll"><table><thead><tr><th scope="col">HAR entry</th><th scope="col">Header</th><th scope="col">Reading</th><th scope="col">Meaning</th></tr></thead><tbody id="headers"></tbody></table></div>
 <div class="row pager"><button id="prev" type="button">Previous</button><span id="page-info" class="mono" role="status"></span><button id="next" type="button">Next</button></div>
+</section>
+</div>
+<div id="comparison" hidden>
+<section class="box" aria-labelledby="comparison-title">
+<div class="row between"><h2 id="comparison-title">Response comparison</h2><button id="compare-export" type="button">Download comparison JSON</button></div>
+<div id="compare-stats" class="stats"></div>
+<p class="muted" id="compare-warning" hidden>One or both copies reached the 600-header limit. Fields outside that portion could affect the comparison.</p>
+<ul id="compare-findings" class="findings" hidden></ul>
+</section>
+<section class="box" aria-labelledby="delta-title">
+<h2 id="delta-title">Header differences</h2>
+<p class="muted">Matching readings can conceal differences in withheld values. Cookie profiles compare recognized flags without linking individual cookies across responses.</p>
+<div class="row filter-row"><label class="field grow">Search compared headers<input id="compare-query" type="search" autocomplete="off"></label><label class="field mode">Difference<select id="change-filter"><option value="differences">Additions, removals, and changes</option><option value="">All readings</option><option>Added</option><option>Removed</option><option>Changed</option><option>Matching</option></select></label><label class="field mode">Category<select id="compare-category"></select></label></div>
+<div class="scroll comparison-scroll" tabindex="0" aria-label="Header comparison table"><table><thead><tr><th scope="col">Header</th><th scope="col">Change</th><th scope="col">Baseline</th><th scope="col">Candidate</th></tr></thead><tbody id="compare-rows"></tbody></table></div>
+<div class="row pager"><button id="compare-prev" type="button">Previous</button><span id="compare-page" class="mono" role="status"></span><button id="compare-next" type="button">Next</button></div>
 </section>
 </div>
 <noscript>Enable JavaScript to analyze headers locally.</noscript>
