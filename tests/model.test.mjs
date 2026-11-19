@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { compareHeaderSets, parseHAR, parseHeaders } from '../web/model.mjs';
-import { COMPARISON_SAMPLE, SAMPLE } from '../web/sample.mjs';
+import { COMPARISON_SAMPLE, SAMPLE } from './header-fixtures.mjs';
 
 test('explains response headers, strips opaque fields and classifies CDN clues', () => {
   const result = parseHeaders(SAMPLE);

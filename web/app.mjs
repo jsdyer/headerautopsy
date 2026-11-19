@@ -1,6 +1,6 @@
 import { $, announce, downloadJSON, el, installTheme, stat, table, tag, wireDrop } from './ui.mjs';
 import { compareHeaderSets, parseHAR, parseHeaders } from './model.mjs';
-import { COMPARISON_SAMPLE, SAMPLE } from './sample.mjs';
+import { PAGE, REDIRECT } from './captures.mjs';
 
 let report = null;
 let comparison = null;
@@ -117,11 +117,11 @@ function setMode(next) {
   $('choose').hidden = next;
   $('paste-label').textContent = next ? 'Baseline response headers' : 'HTTP response headers';
   $('analyse').textContent = next ? 'Compare headers' : 'Analyze headers';
-  $('sample').textContent = next ? 'Try comparison sample' : 'Try sample';
+  $('capture').textContent = next ? 'Open redirect and page' : 'Open captured page headers';
   $('input-guide').textContent = next
     ? 'Paste one HTTP response header block in each field. Compare before and after a change, or use copies from different browsers or networks.'
     : 'Paste response headers or open a sanitized HAR. Browsers may leave cookie and authorization headers out of sanitized exports.';
-  announce(next ? 'Paste both responses or try the comparison sample.' : 'Paste response headers, open a HAR file, or try the example.');
+  announce(next ? 'Paste both responses or open the captured redirect and page.' : 'Paste response headers, open a HAR file, or open the captured page headers.');
 }
 
 function clear() {
@@ -131,7 +131,7 @@ function clear() {
   for (const id of ['headers', 'findings', 'stats', 'compare-rows', 'compare-findings', 'compare-stats']) $(id).replaceChildren();
   $('paste').value = '';
   $('candidate').value = '';
-  announce(comparing ? 'Paste both responses or try the comparison sample.' : 'Paste response headers, open a HAR file, or try the example.');
+  announce(comparing ? 'Paste both responses or open the captured redirect and page.' : 'Paste response headers, open a HAR file, or open the captured page headers.');
 }
 
 async function read(file) {
@@ -168,9 +168,9 @@ function analyse() {
 $('single-mode').addEventListener('click', () => setMode(false));
 $('compare-mode').addEventListener('click', () => setMode(true));
 $('analyse').addEventListener('click', analyse);
-$('sample').addEventListener('click', () => {
-  $('paste').value = SAMPLE;
-  if (comparing) $('candidate').value = COMPARISON_SAMPLE;
+$('capture').addEventListener('click', () => {
+  $('paste').value = comparing ? REDIRECT : PAGE;
+  if (comparing) $('candidate').value = PAGE;
   analyse();
 });
 $('clear').addEventListener('click', clear);
