@@ -106,3 +106,9 @@ ol.path { list-style: none; counter-reset: hops; padding: 0; }
   td, th { padding: .48rem; }
   .capture-inputs:has(#candidate-input:not([hidden])) { grid-template-columns: 1fr; gap: .55rem; }
 }
+:root { --status-border: color-mix(in srgb, currentColor 18%, transparent); }
+.status-context { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:1rem; }
+.status-reference { padding:1rem; border:1px solid var(--status-border); border-radius:.4rem; }
+.status-reference h3 { margin-top:0; }
+.status-comparison { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+@media(max-width:680px) { .status-comparison { grid-template-columns:1fr; } }

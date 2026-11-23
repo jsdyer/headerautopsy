@@ -2,6 +2,7 @@ import { $, announce, downloadJSON, el, installTheme, stat, table, tag, wireDrop
 import { compareHeaderSets, parseHAR, parseHeaders } from './model.mjs';
 import { PAGE, REDIRECT } from './captures.mjs';
 import {securityChecklist} from './checklist.mjs';
+import {statusReferences} from './status-reference.mjs';
 
 let report = null;
 let comparison = null;
@@ -10,6 +11,22 @@ let generation = 0;
 let page = 0;
 let comparisonPage = 0;
 const PAGE_SIZE = 36;
+
+function statusContext(target, values, label = '') {
+  const entries = statusReferences(values);
+  const nodes = entries.map(item => {
+    const card = el('article', undefined, 'status-reference');
+    card.append(el('h3', `${label}${item.code} · ${item.title}`), el('p', item.family, 'muted'), el('p', item.detail));
+    const links = el('p');
+    const reference = el('a', item.specific ? 'Read the specification' : 'Check the IANA registry');
+    reference.href = item.reference; reference.rel = 'noreferrer';
+    links.append(reference);
+    if (item.specific) { const registry = el('a', 'IANA status registry'); registry.href = item.registry; registry.rel = 'noreferrer'; links.append(document.createTextNode(' · '), registry); }
+    card.append(links);
+    return card;
+  });
+  target.replaceChildren(...(nodes.length ? nodes : [el('p', `${label}No HTTP status was supplied. Paste the response status line or import a HAR to interpret it.`)]));
+}
 
 function rows() {
   if (!report) return;
@@ -45,6 +62,7 @@ function show(value, clearPaste) {
   }));
   $('empty-findings').hidden = value.findings.length > 0;
   table($('security-controls'),securityChecklist(value).map(r=>[r.entry,r.title,r.reading,r.detail]),4,'No captured responses.');
+  statusContext($('status-context'), value.status);
   $('report').hidden = false;
   rows();
   announce(value.limited ? 'Analysis ready. The capture exceeded the inspection limit; results show the portion read.' : 'Analysis ready. The report contains interpreted values only.');
@@ -95,6 +113,8 @@ function showComparison(value) {
   const status = [value.baseline, value.candidate].map((side) => side.status.join(', ') || 'Unknown').join(' → ');
   $('compare-stats').replaceChildren(stat('Baseline → candidate status', status),
     ...['Added', 'Removed', 'Changed'].map((change) => stat(change + ' headers', value.headers.filter((row) => row.change === change).length)));
+  statusContext($('baseline-context'), value.baseline.status, 'Baseline: ');
+  statusContext($('candidate-context'), value.candidate.status, 'Candidate: ');
   $('compare-warning').hidden = !(value.baseline.limited || value.candidate.limited);
   const findings = [...value.introduced.map((item) => ['Added clue', item]), ...value.cleared.map((item) => ['Clue no longer seen', item])];
   $('compare-findings').replaceChildren(...findings.map(([label, finding]) => {

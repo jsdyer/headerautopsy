@@ -25,6 +25,7 @@
 <p id="status" class="status" role="status" aria-live="polite">Paste response headers, open a HAR file, or open the captured page headers.</p>
 </section>
 <div id="report" hidden>
+<section class="box" aria-labelledby="status-context-title"><h2 id="status-context-title">HTTP status in context</h2><p>Interpret the code reported in this capture alongside its headers and request. A status code alone does not establish the cause of a failure.</p><div id="status-context" class="status-context"></div></section>
 <section class="box" aria-labelledby="security-title"><h2 id="security-title">Security controls to review</h2><p>Review each captured response separately. “Not observed” describes the supplied capture; HAR exports can omit headers. Header presence alone does not establish a secure configuration.</p><p><a href="https://coolcode.ca/govgrade/">Compare dated MDN header grades in Gov Grade</a>. MDN’s header grade and SSL Labs’ TLS grade measure different controls.</p><div class="scroll"><table><thead><tr><th>Response</th><th>Control</th><th>Captured reading</th><th>How to interpret it</th></tr></thead><tbody id="security-controls"></tbody></table></div></section>
 <section class="box" aria-labelledby="report-title">
 <div class="row between"><h2 id="report-title">Capture findings</h2><button type="button" id="export">Download report JSON</button></div>
@@ -41,6 +42,7 @@
 <section class="box" aria-labelledby="comparison-title">
 <div class="row between"><h2 id="comparison-title">Response comparison</h2><button id="compare-export" type="button">Download comparison JSON</button></div>
 <div id="compare-stats" class="stats"></div>
+<h3>HTTP status context</h3><div class="status-comparison"><div id="baseline-context"></div><div id="candidate-context"></div></div>
 <p class="muted" id="compare-warning" hidden>One or both copies reached the 600-header limit. Fields outside that portion could affect the comparison.</p>
 <ul id="compare-findings" class="findings" hidden></ul>
 </section>
