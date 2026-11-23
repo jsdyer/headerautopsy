@@ -1,6 +1,7 @@
 import { $, announce, downloadJSON, el, installTheme, stat, table, tag, wireDrop } from './ui.mjs';
 import { compareHeaderSets, parseHAR, parseHeaders } from './model.mjs';
 import { PAGE, REDIRECT } from './captures.mjs';
+import {securityChecklist} from './checklist.mjs';
 
 let report = null;
 let comparison = null;
@@ -43,6 +44,7 @@ function show(value, clearPaste) {
     return li;
   }));
   $('empty-findings').hidden = value.findings.length > 0;
+  table($('security-controls'),securityChecklist(value).map(r=>[r.entry,r.title,r.reading,r.detail]),4,'No captured responses.');
   $('report').hidden = false;
   rows();
   announce(value.limited ? 'Analysis ready. The capture exceeded the inspection limit; results show the portion read.' : 'Analysis ready. The report contains interpreted values only.');

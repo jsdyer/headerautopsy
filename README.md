@@ -22,7 +22,12 @@ Deploy `dist/` as a static Pages artifact. No package installation or upstream b
 
 
 <!-- coolcode:guide -->
-Choose Compare two responses and open the captured redirect and page. The path without a final slash returned 301. The destination returned 200 and a max-age of 600 seconds.
+Paste headers or open a HAR locally, then read the security-header checklist for each captured response. Missing headers mean not observed in that capture; CSP frame-ancestors is recognized as a framing-control alternative. Use Gov Grade for dated MDN provider grades and TLS evidence.
 <!-- /coolcode:guide -->
 
 The built-in captures preserve selected public response fields from ordinary GET requests to [the redirect](https://coolcode.ca/marketshadows) and [the page](https://coolcode.ca/marketshadows/) at 05:35 UTC on 19 November 2026. Headers may differ on another request. The selected fields cover content, dates, cache instructions, location and CORS. Request identifiers and proxy metadata were omitted.
+
+
+## Added browser workflow
+
+Paste headers or open a HAR locally, then read the security-header checklist for each captured response. Missing headers mean not observed in that capture; CSP frame-ancestors is recognized as a framing-control alternative. Use Gov Grade for dated MDN provider grades and TLS evidence.

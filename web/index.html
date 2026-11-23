@@ -25,6 +25,7 @@
 <p id="status" class="status" role="status" aria-live="polite">Paste response headers, open a HAR file, or open the captured page headers.</p>
 </section>
 <div id="report" hidden>
+<section class="box" aria-labelledby="security-title"><h2 id="security-title">Security controls to review</h2><p>Review each captured response separately. “Not observed” describes the supplied capture; HAR exports can omit headers. Header presence alone does not establish a secure configuration.</p><p><a href="https://coolcode.ca/govgrade/">Compare dated MDN header grades in Gov Grade</a>. MDN’s header grade and SSL Labs’ TLS grade measure different controls.</p><div class="scroll"><table><thead><tr><th>Response</th><th>Control</th><th>Captured reading</th><th>How to interpret it</th></tr></thead><tbody id="security-controls"></tbody></table></div></section>
 <section class="box" aria-labelledby="report-title">
 <div class="row between"><h2 id="report-title">Capture findings</h2><button type="button" id="export">Download report JSON</button></div>
 <div id="stats" class="stats"></div><ul id="findings" class="findings"></ul><p id="empty-findings" class="muted" hidden>No built-in infrastructure or review clues matched these headers.</p>
