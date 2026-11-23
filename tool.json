@@ -1,0 +1,27 @@
+{
+  "id": "headerautopsy",
+  "title": "Header Autopsy",
+  "description": "Inspect HTTP headers, understand status codes and compare dated response captures.",
+  "category": "security",
+  "tags": [
+    "har",
+    "http",
+    "headers",
+    "waf",
+    "cdn",
+    "cookies",
+    "payments",
+    "status codes",
+    "HTTP",
+    "RFC"
+  ],
+  "icon": "list-filter",
+  "url": "/headerautopsy/",
+  "source": "https://github.com/jsdyer/headerautopsy",
+  "hosting": "project",
+  "access": "browser",
+  "data_info": {
+    "mode": "local",
+    "detail": "Inspect pasted headers, a local HAR or a dated HTTP redirect and its final response."
+  }
+}
